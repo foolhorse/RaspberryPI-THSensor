@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>温湿度监控</title>
+<script src="/static/chart.umd.min.js"></script>
+<style>
+  body { font-family: sans-serif; margin: 16px; max-width: 1100px; }
+  h1 { margin: 0 0 8px; font-size: 20px; }
+  #latest { margin-bottom: 12px; font-size: 15px; }
+  #range-buttons { margin-bottom: 12px; }
+  #range-buttons button {
+    margin-right: 6px; padding: 4px 10px; cursor: pointer;
+    border: 1px solid #ccc; background: #f7f7f7; border-radius: 4px;
+  }
+  #range-buttons button.active { background: #333; color: #fff; border-color: #333; }
+  #chart-wrap { position: relative; height: 420px; }
+</style>
+</head>
+<body>
+  <h1>温湿度监控</h1>
+  <div id="latest">加载中…</div>
+  <div id="range-buttons">
+    <button data-range="1h">1 小时</button>
+    <button data-range="24h" class="active">24 小时</button>
+    <button data-range="7d">7 天</button>
+    <button data-range="30d">30 天</button>
+    <button data-range="all">全部</button>
+  </div>
+  <div id="chart-wrap"><canvas id="chart"></canvas></div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

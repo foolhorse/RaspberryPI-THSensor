@@ -1,0 +1,17 @@
+[Unit]
+Description=Raspberry Pi Temperature and Humidity Web
+After=network.target
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/file/RaspberryPI-THSensor
+ExecStart=/home/pi/file/RaspberryPI-THSensor/ENV/bin/python3 /home/pi/file/RaspberryPI-THSensor/web.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+
+
