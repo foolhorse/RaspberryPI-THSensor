@@ -1,9 +1,6 @@
 # 树莓派上使用温湿度传感器，保存数据，网页展示数据
 
 
-
-
-
 ## 部署
 
 先确认时区正确（迁移前必做）
@@ -41,7 +38,7 @@ Pi 不能联网就用电脑下载后 `scp` 上去。文件约 200KB，放本地�
 sqlite3 data/sensor.db "SELECT COUNT(*), datetime(MIN(ts),'unixepoch','localtime'), datetime(MAX(ts),'unixepoch','localtime') FROM readings;"
 
 安装并启动两个服务
-cp deploy/thsensor.service deploy/thsensor-web.service /etc/systemd/system/
+sudo cp deploy/thsensor.service deploy/thsensor-web.service /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable --now thsensor
 systemctl enable --now thsensor-web
