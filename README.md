@@ -1,7 +1,10 @@
 # 树莓派上使用温湿度传感器，保存数据，网页展示数据
 
-## 部署
 
+
+
+
+## 部署
 
 先确认时区正确（迁移前必做）
 timedatectl
@@ -25,10 +28,8 @@ python3 -m venv .venv
 
 
 下载 Chart.js
-
 在 Pi 上直接下载（Pi 能联网的话）：
-
-cd /home/pi/file/RaspberryPI-THSensor/static
+cd static
 wget -O chart.umd.min.js https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js
 
 Pi 不能联网就用电脑下载后 `scp` 上去。文件约 200KB，放本地是为了内网/断网时页面也能打开（不要依赖 CDN）。
@@ -40,10 +41,10 @@ Pi 不能联网就用电脑下载后 `scp` 上去。文件约 200KB，放本地�
 sqlite3 data/sensor.db "SELECT COUNT(*), datetime(MIN(ts),'unixepoch','localtime'), datetime(MAX(ts),'unixepoch','localtime') FROM readings;"
 
 安装并启动两个服务
-sudo cp deploy/thsensor.service deploy/thsensor-web.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now thsensor
-sudo systemctl enable --now thsensor-web
+cp deploy/thsensor.service deploy/thsensor-web.service /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable --now thsensor
+systemctl enable --now thsensor-web
 
 
 
