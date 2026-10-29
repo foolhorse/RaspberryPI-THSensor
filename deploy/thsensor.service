@@ -5,7 +5,7 @@ After=multi-user.target
 [Service]
 User=pi
 WorkingDirectory=/home/pi/file/RaspberryPI-THSensor
-ExecStart=/home/pi/file/RaspberryPI-THSensor/.env/bin/python3 /home/pi/file/RaspberryPI-THSensor/main.py
+ExecStart=/home/pi/file/RaspberryPI-THSensor/.venv/bin/python3 /home/pi/file/RaspberryPI-THSensor/main.py
 Restart=always
 RestartSec=5
 StandardOutput=journal
