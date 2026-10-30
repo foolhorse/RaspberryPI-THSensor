@@ -16,27 +16,49 @@ RANGES = {
     '24h': 86400,
     '7d': 7 * 86400,
     '30d': 30 * 86400,
+    '1y': 365 * 86400,
+    '3y': 3 * 365 * 86400,
+    '5y': 5 * 365 * 86400,
     'all': None,
 }
 
-MAX_POINTS = 600  # 超过就降采样，避免前端画几万个点
+MAX_POINTS = 600
 
 
-def downsample(rows, max_points):
-    """按行数分桶取平均。够用，不追求严格等间隔。"""
-    if len(rows) <= max_points:
-        return rows
-    bucket = max(1, len(rows) // max_points)
-    result = []
-    for i in range(0, len(rows), bucket):
-        chunk = rows[i:i + bucket]
-        ts_avg = sum(r[0] for r in chunk) // len(chunk)
-        t_vals = [r[1] for r in chunk if r[1] is not None]
-        h_vals = [r[2] for r in chunk if r[2] is not None]
-        t_avg = round(sum(t_vals) / len(t_vals), 2) if t_vals else None
-        h_avg = round(sum(h_vals) / len(h_vals), 2) if h_vals else None
-        result.append((ts_avg, t_avg, h_avg))
-    return result
+def query_readings(conn, seconds, now=None):
+    """在 SQLite 内按整数时间桶聚合，最多返回 MAX_POINTS 个点。"""
+    if now is None:
+        now = int(time.time())
+    if seconds is None:
+        first = conn.execute(
+            'SELECT ts FROM readings ORDER BY ts ASC LIMIT 1'
+        ).fetchone()
+    else:
+        first = conn.execute(
+            'SELECT ts FROM readings WHERE ts >= ? ORDER BY ts ASC LIMIT 1',
+            (now - seconds,),
+        ).fetchone()
+    if first is None:
+        return []
+
+    # 两次端点查询可利用已有 ts 索引，避免扫描全表计算 MIN/MAX。
+    start = first[0]
+    end = conn.execute(
+        'SELECT ts FROM readings ORDER BY ts DESC LIMIT 1'
+    ).fetchone()[0]
+    bucket_seconds = max(1, (end - start + 1 + MAX_POINTS - 1) // MAX_POINTS)
+    # 固定上下界，避免查询期间新写入的记录扩展桶数。
+    return conn.execute(
+        """
+        SELECT CAST(AVG(ts) AS INTEGER),
+               ROUND(AVG(temperature), 2), ROUND(AVG(humidity), 2)
+        FROM readings
+        WHERE ts >= ? AND ts <= ?
+        GROUP BY (ts - ?) / ?
+        ORDER BY (ts - ?) / ?
+        """,
+        (start, end, start, bucket_seconds, start, bucket_seconds),
+    ).fetchall()
 
 
 @route('/')
@@ -76,20 +98,10 @@ def api_readings():
 
     conn = get_conn()
     try:
-        if seconds is None:
-            rows = conn.execute(
-                'SELECT ts, temperature, humidity FROM readings ORDER BY ts ASC'
-            ).fetchall()
-        else:
-            start = int(time.time()) - seconds
-            rows = conn.execute(
-                'SELECT ts, temperature, humidity FROM readings WHERE ts >= ? ORDER BY ts ASC',
-                (start,),
-            ).fetchall()
+        rows = query_readings(conn, seconds)
     finally:
         conn.close()
 
-    rows = downsample(rows, MAX_POINTS)
     data = [{'ts': r[0], 'temperature': r[1], 'humidity': r[2]} for r in rows]
     return json.dumps({'ok': True, 'data': data})
 

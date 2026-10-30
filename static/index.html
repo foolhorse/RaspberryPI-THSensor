@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>温湿度监控</title>
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
 <script src="/static/chart.umd.min.js"></script>
 <style>
   body { font-family: sans-serif; margin: 16px; max-width: 1100px; }
@@ -15,6 +16,8 @@
     border: 1px solid #ccc; background: #f7f7f7; border-radius: 4px;
   }
   #range-buttons button.active { background: #333; color: #fff; border-color: #333; }
+  #range-buttons button:disabled { opacity: 0.5; cursor: wait; }
+  #chart-status { min-height: 1.5em; margin-bottom: 8px; font-size: 14px; }
   #chart-wrap { position: relative; height: 420px; }
 </style>
 </head>
@@ -26,8 +29,12 @@
     <button data-range="24h" class="active">24 小时</button>
     <button data-range="7d">7 天</button>
     <button data-range="30d">30 天</button>
+    <button data-range="1y">1 年</button>
+    <button data-range="3y">3 年</button>
+    <button data-range="5y">5 年</button>
     <button data-range="all">全部</button>
   </div>
+  <div id="chart-status" role="status" aria-live="polite"></div>
   <div id="chart-wrap"><canvas id="chart"></canvas></div>
   <script src="/static/app.js"></script>
 </body>
