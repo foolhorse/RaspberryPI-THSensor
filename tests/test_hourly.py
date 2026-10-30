@@ -66,6 +66,17 @@ class HourlyTests(unittest.TestCase):
         self.assertTrue(db.hourly_ready(self.conn))
         self.assertEqual(query_readings(self.conn, None), [])
 
+    def test_empty_partial_hour_does_not_create_phantom_point(self):
+        db.store_reading(self.conn, 3600, 10, 40)
+        db.store_reading(self.conn, 10800, 20, 60)
+        # 起点所在小时没有范围内记录，不能生成空统计点。
+        self.assertEqual(query_readings(self.conn, 7 * 86400, now=3650 + 7 * 86400),
+                         [(10800, 20.0, 60.0)])
+        # 整点起始时，回查区间为空，也不应生成额外数据点。
+        self.assertEqual(query_readings(self.conn, 7 * 86400, now=3600 + 7 * 86400),
+                         [(3600, 10.0, 40.0), (10800, 20.0, 60.0)])
+        self.assertEqual(query_readings(self.conn, 7 * 86400, now=10801 + 7 * 86400), [])
+
 
 if __name__ == '__main__':
     unittest.main()

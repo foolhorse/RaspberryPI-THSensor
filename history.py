@@ -72,12 +72,12 @@ def query_readings(conn, seconds, now=None):
                    COALESCE(SUM(temperature), 0), COUNT(temperature),
                    COALESCE(SUM(humidity), 0), COUNT(humidity)
             FROM readings WHERE ts >= ? AND ts < ?
-            HAVING COUNT(*) > 0
         )
         SELECT CAST(SUM(ts_sum) / SUM(reading_count) AS INTEGER),
                ROUND(SUM(temperature_sum) / NULLIF(SUM(temperature_count), 0), 2),
                ROUND(SUM(humidity_sum) / NULLIF(SUM(humidity_count), 0), 2)
         FROM stats
+        WHERE reading_count > 0
         GROUP BY (hour_ts - ?) / ?
         ORDER BY MIN(hour_ts)
     ''', (full_start, last[0], first_hour, start, full_start,
