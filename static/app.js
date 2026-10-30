@@ -1,3 +1,4 @@
+// 横轴只显示短标签；单独保留对应的 Unix 秒，供悬浮提示展示完整时间。
 let chartTimestamps = [];
 
 const chart = new Chart(document.getElementById('chart'), {
@@ -5,7 +6,7 @@ const chart = new Chart(document.getElementById('chart'), {
   plugins: [{
     id: 'readableTimeTicks',
     beforeLayout(chart) {
-      // 用数值设置刻度上限，并为两侧纵轴预留空间。
+      // 每次布局（包括窗口缩放）重新计算刻度上限，为两侧纵轴预留空间。
       chart.options.scales.x.ticks.maxTicksLimit = Math.max(2, Math.min(8,
         Math.floor((chart.width - 120) / 90)));
     },
@@ -67,6 +68,7 @@ function axisLabel(ts, range) {
 let latestLoading = false;
 
 async function loadLatest() {
+  // 网络或服务响应慢时，跳过重叠的定时刷新，避免请求积压。
   if (latestLoading) return;
   latestLoading = true;
   try {
@@ -94,6 +96,7 @@ const rangeButtons = document.querySelectorAll('#range-buttons button');
 const chartStatus = document.getElementById('chart-status');
 
 async function loadRange(range) {
+  // 一次只允许一个历史请求；函数内的锁也防止绕过禁用按钮重复调用。
   if (rangeLoading) return;
   rangeLoading = true;
   rangeButtons.forEach(btn => { btn.disabled = true; });
@@ -110,6 +113,7 @@ async function loadRange(range) {
     chart.data.datasets[0].data = data.map(d => d.temperature);
     chart.data.datasets[1].data = data.map(d => d.humidity);
     chart.update('none');
+    // 成功后才切换选中范围，失败时仍与保留的旧曲线对应。
     rangeButtons.forEach(btn => {
       btn.setAttribute('aria-pressed', String(btn.dataset.range === range));
       if (btn.dataset.range === range) {

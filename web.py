@@ -11,7 +11,7 @@ from history import query_readings
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, 'static')
 
-# range 参数 -> 秒数；None 表示全部
+# range 参数 -> 秒数；年按 365 天计算，None 表示全部历史。
 RANGES = {
     '1h': 3600,
     '24h': 86400,
@@ -37,6 +37,7 @@ def static(path):
 
 @route('/api/latest')
 def api_latest():
+    """供页面顶部独立刷新最新读数，不执行历史聚合。"""
     response.content_type = 'application/json'
     conn = get_conn()
     try:
@@ -54,6 +55,7 @@ def api_latest():
 
 @route('/api/readings')
 def api_readings():
+    """统一返回原始或小时统计聚合后的曲线数据，由查询层选择数据源。"""
     response.content_type = 'application/json'
     rng = request.query.get('range', '24h')
     if rng not in RANGES:
@@ -72,5 +74,5 @@ def api_readings():
 
 if __name__ == '__main__':
     init_db()
-    # 老 Pi 单核，wsgiref 单线程完全够用，不要上 gunicorn
+    # 使用轻量的单线程服务；同一时刻的其他请求需要等待当前查询完成。
     run(host='0.0.0.0', port=8080, server='wsgiref')
