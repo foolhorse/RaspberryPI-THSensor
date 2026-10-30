@@ -7,35 +7,47 @@
 <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
 <script src="/static/chart.umd.min.js"></script>
 <style>
-  body { font-family: sans-serif; margin: 16px; max-width: 1100px; }
-  h1 { margin: 0 0 8px; font-size: 20px; }
-  #latest { margin-bottom: 12px; font-size: 15px; }
-  #range-buttons { margin-bottom: 12px; }
-  #range-buttons button {
-    margin-right: 6px; padding: 4px 10px; cursor: pointer;
-    border: 1px solid #ccc; background: #f7f7f7; border-radius: 4px;
-  }
-  #range-buttons button.active { background: #333; color: #fff; border-color: #333; }
-  #range-buttons button:disabled { opacity: 0.5; cursor: wait; }
-  #chart-status { min-height: 1.5em; margin-bottom: 8px; font-size: 14px; }
-  #chart-wrap { position: relative; height: 420px; }
+  body { font: 16px/1.5 system-ui, sans-serif; max-width: 1100px; margin: 24px auto; padding: 0 16px; }
+  h1, h2 { font-size: 1.25rem; margin: 16px 0 8px; }
+  p, figure { margin: 8px 0 16px; }
+  small { color: #555; }
+  #latest strong { font-size: 1.5rem; }
+  button { font: inherit; margin: 0 4px 8px 0; padding: 4px 10px; cursor: pointer; }
+  button[aria-pressed="true"] { background: #333; color: #fff; }
+  button:disabled { opacity: 0.5; cursor: wait; }
+  #chart-wrap { position: relative; height: clamp(280px, 55vh, 420px); }
 </style>
 </head>
 <body>
-  <h1>温湿度监控</h1>
-  <div id="latest">加载中…</div>
-  <div id="range-buttons">
-    <button data-range="1h">1 小时</button>
-    <button data-range="24h" class="active">24 小时</button>
-    <button data-range="7d">7 天</button>
-    <button data-range="30d">30 天</button>
-    <button data-range="1y">1 年</button>
-    <button data-range="3y">3 年</button>
-    <button data-range="5y">5 年</button>
-    <button data-range="all">全部</button>
-  </div>
-  <div id="chart-status" role="status" aria-live="polite"></div>
-  <div id="chart-wrap"><canvas id="chart"></canvas></div>
-  <script src="/static/app.js"></script>
+  <header><h1>温湿度监控</h1></header>
+  <main>
+    <section aria-labelledby="latest-heading">
+        <h2 id="latest-heading">最新读数</h2>
+        <p id="latest">
+          温度 <strong id="latest-temperature">— °C</strong> ·
+          湿度 <strong id="latest-humidity">— %</strong><br>
+          <small id="latest-status" role="status">加载中…</small>
+        </p>
+    </section>
+    <section aria-labelledby="history-heading">
+      <h2 id="history-heading">历史趋势 · <span id="current-range">24 小时</span></h2>
+      <div id="range-buttons" role="group" aria-label="历史时间范围">
+        <button data-range="1h" aria-pressed="false">1 小时</button>
+        <button data-range="24h" aria-pressed="true">24 小时</button>
+        <button data-range="7d" aria-pressed="false">7 天</button>
+        <button data-range="30d" aria-pressed="false">30 天</button>
+        <button data-range="1y" aria-pressed="false">1 年</button>
+        <button data-range="3y" aria-pressed="false">3 年</button>
+        <button data-range="5y" aria-pressed="false">5 年</button>
+        <button data-range="all" aria-pressed="false">全部</button>
+      </div>
+      <p id="chart-status" role="status" aria-live="polite" hidden></p>
+      <figure>
+        <div id="chart-wrap"><canvas id="chart" role="img" aria-label="温度与湿度历史曲线"></canvas></div>
+        <figcaption><small id="chart-period">选择时间范围查看历史，轻触或悬停曲线查看完整时间和读数。</small></figcaption>
+      </figure>
+    </section>
+  </main>
+  <script src="/static/app.js?v=20261030-2"></script>
 </body>
 </html>

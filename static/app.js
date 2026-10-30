@@ -1,5 +1,15 @@
+let chartTimestamps = [];
+
 const chart = new Chart(document.getElementById('chart'), {
   type: 'line',
+  plugins: [{
+    id: 'readableTimeTicks',
+    beforeLayout(chart) {
+      // 用数值设置刻度上限，并为两侧纵轴预留空间。
+      chart.options.scales.x.ticks.maxTicksLimit = Math.max(2, Math.min(8,
+        Math.floor((chart.width - 120) / 90)));
+    },
+  }],
   data: {
     labels: [],
     datasets: [
@@ -20,7 +30,7 @@ const chart = new Chart(document.getElementById('chart'), {
       legend: { position: 'top' },
       tooltip: {
         callbacks: {
-          title: items => items.length ? fmt(items[0].chart.data.labels[items[0].dataIndex]) : '',
+          title: items => items.length ? fmt(chartTimestamps[items[0].dataIndex]) : '',
         },
       },
     },
@@ -28,11 +38,9 @@ const chart = new Chart(document.getElementById('chart'), {
       x: {
         ticks: {
           autoSkip: true,
-          maxTicksLimit: context => Math.max(2, Math.min(8, Math.floor(context.chart.width / 100))),
+          maxTicksLimit: 4,
           maxRotation: 0,
-          callback(value) {
-            return axisLabel(this.getLabelForValue(value));
-          },
+          minRotation: 0,
         },
       },
       y:  { position: 'left',  title: { display: true, text: '温度 (°C)' } },
@@ -43,16 +51,17 @@ const chart = new Chart(document.getElementById('chart'), {
 });
 
 function fmt(ts) {
-  return new Date(ts * 1000).toLocaleString();
+  return new Date(ts * 1000).toLocaleString('zh-CN', { hour12: false });
 }
 
-function axisLabel(ts) {
+function axisLabel(ts, range) {
   const date = new Date(ts * 1000);
   const pad = value => String(value).padStart(2, '0');
-  return [
-    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`,
-    `${pad(date.getHours())}:${pad(date.getMinutes())}`,
-  ];
+  const day = `${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  // 长时间范围突出年份；短时间范围突出时分。完整时间留在悬浮提示中。
+  return ['1y', '3y', '5y', 'all'].includes(range)
+    ? [String(date.getFullYear()), day]
+    : [day, `${pad(date.getHours())}:${pad(date.getMinutes())}`];
 }
 
 let latestLoading = false;
@@ -63,15 +72,18 @@ async function loadLatest() {
   try {
     const r = await fetch('/api/latest');
     const j = await r.json();
-    const el = document.getElementById('latest');
-    if (j.ok && j.data) {
-      el.innerHTML = `最新：温度 <b>${j.data.temperature} °C</b>，` +
-                     `湿度 <b>${j.data.humidity} %</b>（${fmt(j.data.ts)}）`;
+    if (!r.ok || !j.ok) throw new Error(`HTTP ${r.status}`);
+    if (j.data) {
+      document.getElementById('latest-temperature').textContent = `${j.data.temperature} °C`;
+      document.getElementById('latest-humidity').textContent = `${j.data.humidity} %`;
+      document.getElementById('latest-status').textContent = `采集时间：${fmt(j.data.ts)} · 每 30 秒检查更新`;
     } else {
-      el.textContent = '暂无数据';
+      document.getElementById('latest-temperature').textContent = '— °C';
+      document.getElementById('latest-humidity').textContent = '— %';
+      document.getElementById('latest-status').textContent = '暂无数据';
     }
   } catch (e) {
-    document.getElementById('latest').textContent = '读取失败：' + e;
+    document.getElementById('latest-status').textContent = '最新读数更新失败：' + e.message;
   } finally {
     latestLoading = false;
   }
@@ -85,6 +97,7 @@ async function loadRange(range) {
   if (rangeLoading) return;
   rangeLoading = true;
   rangeButtons.forEach(btn => { btn.disabled = true; });
+  chartStatus.hidden = false;
   chartStatus.textContent = '正在加载历史数据，请稍候…';
   try {
     const r = await fetch('/api/readings?range=' + encodeURIComponent(range));
@@ -92,14 +105,22 @@ async function loadRange(range) {
     const j = await r.json();
     if (!j.ok || !Array.isArray(j.data)) throw new Error('返回数据格式错误');
     const data = j.data;
-    chart.data.labels = data.map(d => d.ts);
+    chartTimestamps = data.map(d => d.ts);
+    chart.data.labels = data.map(d => axisLabel(d.ts, range));
     chart.data.datasets[0].data = data.map(d => d.temperature);
     chart.data.datasets[1].data = data.map(d => d.humidity);
     chart.update('none');
     rangeButtons.forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.range === range);
+      btn.setAttribute('aria-pressed', String(btn.dataset.range === range));
+      if (btn.dataset.range === range) {
+        document.getElementById('current-range').textContent = btn.textContent;
+      }
     });
     chartStatus.textContent = data.length ? '' : '所选时间范围暂无数据';
+    chartStatus.hidden = data.length > 0;
+    document.getElementById('chart-period').textContent = data.length
+      ? `显示数据：${fmt(data[0].ts)} 至 ${fmt(data[data.length - 1].ts)}。轻触或悬停曲线查看详细读数。`
+      : '选择其他时间范围查看历史数据。';
   } catch (e) {
     chartStatus.textContent = '历史数据加载失败，请点击时间范围重试：' + e.message;
   } finally {
