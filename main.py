@@ -2,7 +2,7 @@ import time
 
 import Adafruit_DHT
 
-from db import get_conn, init_db
+from db import get_conn, init_db, store_reading
 
 DHT_SENSOR = Adafruit_DHT.DHT22
 DHT_PIN = 2
@@ -18,11 +18,7 @@ def read_and_store():
     ts = int(time.time())
     conn = get_conn()
     try:
-        conn.execute(
-            'INSERT INTO readings (ts, temperature, humidity) VALUES (?, ?, ?)',
-            (ts, round(temperature, 2), round(humidity, 2)),
-        )
-        conn.commit()
+        store_reading(conn, ts, round(temperature, 2), round(humidity, 2))
     finally:
         conn.close()
 

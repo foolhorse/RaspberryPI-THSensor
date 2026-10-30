@@ -6,6 +6,7 @@ import time
 from bottle import route, run, static_file, request, response
 
 from db import get_conn, init_db
+from history import query_readings
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, 'static')
@@ -22,43 +23,6 @@ RANGES = {
     'all': None,
 }
 
-MAX_POINTS = 600
-
-
-def query_readings(conn, seconds, now=None):
-    """在 SQLite 内按整数时间桶聚合，最多返回 MAX_POINTS 个点。"""
-    if now is None:
-        now = int(time.time())
-    if seconds is None:
-        first = conn.execute(
-            'SELECT ts FROM readings ORDER BY ts ASC LIMIT 1'
-        ).fetchone()
-    else:
-        first = conn.execute(
-            'SELECT ts FROM readings WHERE ts >= ? ORDER BY ts ASC LIMIT 1',
-            (now - seconds,),
-        ).fetchone()
-    if first is None:
-        return []
-
-    # 两次端点查询可利用已有 ts 索引，避免扫描全表计算 MIN/MAX。
-    start = first[0]
-    end = conn.execute(
-        'SELECT ts FROM readings ORDER BY ts DESC LIMIT 1'
-    ).fetchone()[0]
-    bucket_seconds = max(1, (end - start + 1 + MAX_POINTS - 1) // MAX_POINTS)
-    # 固定上下界，避免查询期间新写入的记录扩展桶数。
-    return conn.execute(
-        """
-        SELECT CAST(AVG(ts) AS INTEGER),
-               ROUND(AVG(temperature), 2), ROUND(AVG(humidity), 2)
-        FROM readings
-        WHERE ts >= ? AND ts <= ?
-        GROUP BY (ts - ?) / ?
-        ORDER BY (ts - ?) / ?
-        """,
-        (start, end, start, bucket_seconds, start, bucket_seconds),
-    ).fetchall()
 
 
 @route('/')
