@@ -5,7 +5,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 import db
-from backfill_hourly import backfill, verify
 from history import query_readings
 
 
@@ -24,25 +23,22 @@ class HourlyTests(unittest.TestCase):
     def test_incremental_weighting_nulls_and_partial_boundary(self):
         for row in [(3600, 10, None), (3700, 20, 50), (7200, 40, 70)]:
             db.store_reading(self.conn, *row)
-        self.assertEqual(verify(self.conn), 3)
         self.assertEqual(query_readings(self.conn, None), [(3650, 15.0, 50.0), (7200, 40.0, 70.0)])
         # 范围起点 3650，必须排除同小时的 3600 那条。
         self.assertEqual(query_readings(self.conn, 7 * 86400, now=3650 + 7 * 86400),
                          [(3700, 20.0, 50.0), (7200, 40.0, 70.0)])
         self.assertEqual(query_readings(self.conn, 7 * 86400, now=8000 + 7 * 86400), [])
 
-    def test_backfill_rerun_and_unready_fallback(self):
-        self.conn.executemany('INSERT INTO readings(ts, temperature, humidity) VALUES (?, ?, ?)',
-                              [(0, None, None), (3600, 10, 30), (90000, 20, 50)])
-        self.conn.execute("UPDATE app_metadata SET value='0' WHERE key='hourly_ready'")
-        self.conn.commit()
-        self.assertEqual(len(query_readings(self.conn, None)), 3)
-        for _ in range(2):
-            backfill(self.conn, progress=lambda _: None)
-            self.assertTrue(db.hourly_ready(self.conn))
-            self.assertEqual(verify(self.conn), 3)
-        db.store_reading(self.conn, 90060, 30, 60)
-        self.assertEqual(verify(self.conn), 4)
+    def test_short_range_uses_raw_readings(self):
+        db.store_reading(self.conn, 3600, 10, 30)
+        db.store_reading(self.conn, 3700, 20, 50)
+        self.assertEqual(query_readings(self.conn, 3600, now=4000),
+                         [(3600, 10.0, 30.0), (3700, 20.0, 50.0)])
+        self.assertEqual(query_readings(self.conn, None), [(3650, 15.0, 40.0)])
+        self.assertEqual(self.conn.execute(
+            'SELECT reading_count, ts_sum, temperature_sum, temperature_count, '
+            'humidity_sum, humidity_count FROM hourly_readings'
+        ).fetchone(), (2, 7300, 30.0, 2, 80.0, 2))
 
     def test_atomic_rollback(self):
         self.conn.execute("CREATE TRIGGER fail_summary BEFORE UPDATE ON hourly_readings BEGIN SELECT RAISE(ABORT, 'test'); END")
@@ -61,10 +57,10 @@ class HourlyTests(unittest.TestCase):
         self.assertEqual(rows[0], (1200, 20.0, 50.0))
         self.assertEqual(rows[-1][0], 600 * 3600)
 
-    def test_empty_backfill(self):
-        backfill(self.conn, progress=lambda _: None)
-        self.assertTrue(db.hourly_ready(self.conn))
+    def test_empty_database(self):
         self.assertEqual(query_readings(self.conn, None), [])
+        self.assertEqual(query_readings(self.conn, 7 * 86400, now=1000000), [])
+        self.assertEqual(query_readings(self.conn, 3600, now=1000000), [])
 
     def test_empty_partial_hour_does_not_create_phantom_point(self):
         db.store_reading(self.conn, 3600, 10, 40)

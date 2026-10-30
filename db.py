@@ -16,7 +16,7 @@ def get_conn():
 
 
 def init_db():
-    """幂等：建目录、建表、建索引。main/web/import 启动时都可以调。"""
+    """幂等：建目录、建表、建索引。采集和 Web 启动时均可调用。"""
     os.makedirs(DB_DIR, exist_ok=True)
     conn = get_conn()
     try:
@@ -40,13 +40,10 @@ def init_db():
                 humidity_count INTEGER NOT NULL DEFAULT 0
             )
         """)
-        conn.execute('CREATE TABLE IF NOT EXISTS app_metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL)')
-        # 新空库可直接使用汇总；旧库必须完成回填后才切换。
-        if conn.execute('SELECT 1 FROM readings LIMIT 1').fetchone() is None:
-            conn.execute("INSERT OR IGNORE INTO app_metadata VALUES ('hourly_ready', '1')")
         conn.commit()
     finally:
         conn.close()
+
 
 def store_reading(conn, ts, temperature, humidity):
     """原始记录和小时统计一起提交，任一步失败则一起回滚。"""
@@ -67,9 +64,3 @@ def store_reading(conn, ts, temperature, humidity):
         ''', (ts, temperature if temperature is not None else 0,
               int(temperature is not None), humidity if humidity is not None else 0,
               int(humidity is not None), hour))
-
-
-def hourly_ready(conn):
-    return conn.execute(
-        "SELECT value FROM app_metadata WHERE key = 'hourly_ready'"
-    ).fetchone() == ('1',)

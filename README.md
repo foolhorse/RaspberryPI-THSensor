@@ -18,7 +18,6 @@
 ├── db.py                   # 数据库连接、建表和索引
 ├── web.py                  # 静态页面与数据查询 API
 ├── history.py              # 原始数据及小时汇总查询
-├── backfill_hourly.py      # 历史小时汇总回填及核对
 ├── tests/                  # 汇总与事务测试
 ├── static/
 │   ├── index.html          # 监控页面
@@ -34,6 +33,8 @@
 `static/chart.umd.min.js` 需要按下方步骤下载。部署前需将 `deploy/` 中的用户和项目路径改为实际环境配置。
 
 ## 部署
+
+首次启动时会自动创建 `data/sensor.db`、原始记录表和小时汇总表。采集程序在同一事务内写入原始数据并更新对应小时统计，无需额外定时任务。
 
 把代码放到项目目录
 
@@ -51,7 +52,7 @@ Pi 不能联网就用电脑下载后 `scp` 上去。文件约 200KB，放本地�
 创建虚拟环境
 ```bash
 python3 -m venv .venv
-```bash
+```
 安装 Adafruit_DHT Bottle 到 venv（必须用 venv 里的 pip）
 ```bash
 .venv/bin/pip install Adafruit_DHT==1.4.0 bottle
@@ -113,41 +114,9 @@ curl -s 'http://127.0.0.1:8080/api/readings?range=1h' | head -c 300
 http://<Pi的IP>:8080/
 ```
 
+## 测试
 
-## 已有数据库升级到小时汇总
-
-在树莓派项目目录执行。先部署新版代码，停止两个服务，再备份数据库并回填。回填期间暂停采集，完成时间取决于设备和数据量。
-
-```bash
-sudo systemctl stop thsensor thsensor-web
-.venv/bin/python - <<'PYTHON'
-import sqlite3
-from datetime import datetime
-from db import DB_PATH
-backup = DB_PATH + '.backup-' + datetime.now().strftime('%Y%m%d-%H%M%S')
-source = sqlite3.connect(DB_PATH)
-target = sqlite3.connect(backup)
-try:
-    source.backup(target)
-finally:
-    target.close()
-    source.close()
-print('备份完成：', backup)
-PYTHON
-.venv/bin/python backfill_hourly.py
-```
-
-确认脚本输出“完成：核对……条原始记录，已启用小时汇总查询”后，再启动服务：
-
-```bash
-sudo systemctl start thsensor thsensor-web
-```
-
-脚本按 UTC 日分批提交，每小时保存记录数、时间戳总和、温湿度总和及各自有效条数，最后核对原始表和汇总表的总条数、时间戳总和、温湿度有效条数及总和。原始表不会修改。脚本可重复运行，每次清空并重建汇总；中途失败可保持服务停止后重新执行。失败或未回填时，历史接口回退到原始表查询，避免展示不完整汇总，速度仍可能较慢。
-
-新建空数据库不需要回填。新版采集程序在同一个事务中写入原始表并更新小时统计，无需额外定时任务。7 天以上范围按小时加权展示；查询起点不足一小时的部分会回查原始表，避免包含范围外记录。分桶边界与旧版原始数据分桶可能略有差异。
-
-运行测试（无需传感器或 Bottle）：
+运行汇总和事务测试（无需传感器或 Bottle）：
 
 ```bash
 python3 -m unittest discover -s tests -v

@@ -1,7 +1,5 @@
 import time
 
-from db import hourly_ready
-
 MAX_POINTS = 600
 
 
@@ -9,15 +7,10 @@ def query_raw_readings(conn, seconds, now=None):
     """在 SQLite 内按整数时间桶聚合，最多返回 MAX_POINTS 个点。"""
     if now is None:
         now = int(time.time())
-    if seconds is None:
-        first = conn.execute(
-            'SELECT ts FROM readings ORDER BY ts ASC LIMIT 1'
-        ).fetchone()
-    else:
-        first = conn.execute(
-            'SELECT ts FROM readings WHERE ts >= ? ORDER BY ts ASC LIMIT 1',
-            (now - seconds,),
-        ).fetchone()
+    first = conn.execute(
+        'SELECT ts FROM readings WHERE ts >= ? ORDER BY ts ASC LIMIT 1',
+        (now - seconds,),
+    ).fetchone()
     if first is None:
         return []
 
@@ -41,10 +34,9 @@ def query_raw_readings(conn, seconds, now=None):
     ).fetchall()
 
 
-
 def query_readings(conn, seconds, now=None):
     """短范围查原始表；长期查小时统计，起点不足一小时部分精确回查。"""
-    if (seconds is not None and seconds <= 86400) or not hourly_ready(conn):
+    if seconds is not None and seconds <= 86400:
         return query_raw_readings(conn, seconds, now)
     if now is None:
         now = int(time.time())
